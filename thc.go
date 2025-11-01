@@ -14,7 +14,7 @@ type container struct {
 	identity  string
 	removedID string
 	data      map[string]any
-	mu        sync.RWMutex
+	mutex     sync.RWMutex
 
 	auditHook FuncMap
 }
@@ -26,8 +26,8 @@ type Key[T any] struct {
 
 // Number of records in the underlying map
 func (c *container) Len() int {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
 	return len(c.data)
 }
 
@@ -58,9 +58,9 @@ func Store[T any](c *container, input T) (Key[T], error) {
 
 	newKey := uuid.NewString()
 
-	c.mu.Lock()
+	c.mutex.Lock()
 	c.data[newKey] = input
-	c.mu.Unlock()
+	c.mutex.Unlock()
 
 	if fn, ok := c.auditHook["Store"]; ok {
 		fn()
@@ -80,9 +80,9 @@ func Fetch[T any](c *container, key Key[T]) (T, error) {
 		return zero, thc_errs.ErrIdentMismatch
 	}
 
-	c.mu.RLock()
+	c.mutex.RLock()
 	val, ok := c.data[key.mapKey]
-	c.mu.RUnlock()
+	c.mutex.RUnlock()
 	if !ok {
 		return zero, thc_errs.ErrValNotFound
 	}
@@ -115,9 +115,9 @@ func Update[T any](c *container, key Key[T], input T) error {
 		return thc_errs.ErrIdentMismatch
 	}
 
-	c.mu.Lock()
+	c.mutex.Lock()
 	c.data[key.mapKey] = input
-	c.mu.Unlock()
+	c.mutex.Unlock()
 
 	if fn, ok := c.auditHook["Update"]; ok {
 		fn()
@@ -135,15 +135,14 @@ func Remove[T any](c *container, key *Key[T]) error {
 		return thc_errs.ErrIdentMismatch
 	}
 
-
-	c.mu.Lock()
+	c.mutex.Lock()
 	_, ok := c.data[key.mapKey]
 	if !ok {
-		c.mu.Unlock()
+		c.mutex.Unlock()
 		return thc_errs.ErrMissingValue
 	}
 	delete(c.data, key.mapKey)
-	c.mu.Unlock()
+	c.mutex.Unlock()
 
 	key.identity = c.removedID
 
