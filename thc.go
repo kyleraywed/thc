@@ -10,7 +10,7 @@ import (
 
 type FuncMap map[string]func()
 
-type container struct {
+type Container struct {
 	identity  string
 	removedID string
 	data      map[string]any
@@ -25,20 +25,20 @@ type Key[T any] struct {
 }
 
 // Number of records in the underlying map
-func (c *container) Len() int {
+func (c *Container) Len() int {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 	return len(c.data)
 }
 
 // String representation
-func (c *container) String() string {
+func (c *Container) String() string {
 	return "Length: " + strconv.Itoa(c.Len())
 }
 
 // Initialize identities, underlying map, and auditHook handler.
-func NewTHC(handler FuncMap) *container {
-	return &container{
+func NewTHC(handler FuncMap) *Container {
+	return &Container{
 		identity:  uuid.NewString(),
 		removedID: uuid.NewString(),
 		data:      make(map[string]any),
@@ -47,10 +47,10 @@ func NewTHC(handler FuncMap) *container {
 }
 
 // Store a value, get a key
-func Store[T any](c *container, input T) (Key[T], error) {
+func Store[T any](c *Container, input T) (Key[T], error) {
 	switch any(input).(type) {
-	case container:
-		if any(input).(container).identity == c.identity {
+	case Container:
+		if any(input).(Container).identity == c.identity {
 			var zero Key[T]
 			return zero, thc_errs.ErrStoreSelf
 		}
@@ -70,7 +70,7 @@ func Store[T any](c *container, input T) (Key[T], error) {
 }
 
 // Fetch a value with key, get type-casted value
-func Fetch[T any](c *container, key Key[T]) (T, error) {
+func Fetch[T any](c *Container, key Key[T]) (T, error) {
 	var zero T
 
 	if key.identity == c.removedID {
@@ -100,10 +100,10 @@ func Fetch[T any](c *container, key Key[T]) (T, error) {
 }
 
 // Update a value (must be same type)
-func Update[T any](c *container, key Key[T], input T) error {
+func Update[T any](c *Container, key Key[T], input T) error {
 	switch any(input).(type) {
-	case container:
-		if any(input).(container).identity == c.identity {
+	case Container:
+		if any(input).(Container).identity == c.identity {
 			return thc_errs.ErrStoreSelf
 		}
 	}
@@ -127,7 +127,7 @@ func Update[T any](c *container, key Key[T], input T) error {
 }
 
 // Remove a value, invalidate key
-func Remove[T any](c *container, key *Key[T]) error {
+func Remove[T any](c *Container, key *Key[T]) error {
 	if key.identity == c.removedID {
 		return thc_errs.ErrDeletedValue
 	}
